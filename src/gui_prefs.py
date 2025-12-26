@@ -128,6 +128,27 @@ class Ui_Prefs(object):
         self.horizontalLayout_4.addItem(spacerItem1)
         self.verticalLayout.addWidget(self.frame_3)
         self.verticalLayout_2.addWidget(self.groupBox)
+        
+        # Anki Integration section
+        self.frame_7 = QtWidgets.QFrame(Prefs)
+        self.frame_7.setFrameShape(QtWidgets.QFrame.HLine)
+        self.frame_7.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.frame_7.setObjectName("frame_7")
+        self.verticalLayout_2.addWidget(self.frame_7)
+        
+        self.anki_group_box = QtWidgets.QGroupBox(Prefs)
+        self.anki_group_box.setObjectName("anki_group_box")
+        self.horizontalLayout_5 = QtWidgets.QHBoxLayout(self.anki_group_box)
+        self.horizontalLayout_5.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout_5.setObjectName("horizontalLayout_5")
+        self.anki_settings_btn = QtWidgets.QToolButton(self.anki_group_box)
+        self.anki_settings_btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.anki_settings_btn.setObjectName("anki_settings_btn")
+        self.horizontalLayout_5.addWidget(self.anki_settings_btn)
+        spacerItem_anki = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_5.addItem(spacerItem_anki)
+        self.verticalLayout_2.addWidget(self.anki_group_box)
+        
         spacerItem2 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout_2.addItem(spacerItem2)
         self.frame_5 = QtWidgets.QFrame(Prefs)
@@ -190,6 +211,9 @@ class Ui_Prefs(object):
         self.sort_box.setToolTip(QtWidgets.QApplication.translate("Prefs", "Change the sorting method of the highlights", None, -1))
         self.sort_box.setItemText(0, QtWidgets.QApplication.translate("Prefs", "Sort Highlights by Date", None, -1))
         self.sort_box.setItemText(1, QtWidgets.QApplication.translate("Prefs", "Sort Highlights by Page", None, -1))
+        self.anki_group_box.setTitle(QtWidgets.QApplication.translate("Prefs", "Anki Integration", None, -1))
+        self.anki_settings_btn.setToolTip(QtWidgets.QApplication.translate("Prefs", "Configure Anki export settings", None, -1))
+        self.anki_settings_btn.setText(QtWidgets.QApplication.translate("Prefs", "Anki Settings...", None, -1))
         self.close_btn.setText(QtWidgets.QApplication.translate("Prefs", "Close", None, -1))
 
 import images_rc

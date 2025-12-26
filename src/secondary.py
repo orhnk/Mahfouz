@@ -1537,6 +1537,28 @@ class Prefs(QDialog, Ui_Prefs):
         self.show_items = [self.show_page_chk, self.show_date_chk, self.show_high_chk,
                            self.show_chap_chk, self.show_comm_chk]
         self.edit_template = EditTemplate(parent=self.base)
+        self.anki_prefs_dialog = None
+
+    @Slot()
+    def on_anki_settings_btn_clicked(self):
+        """ Opens the Anki settings dialog
+        """
+        if self.anki_prefs_dialog is None:
+            from anki_ui import AnkiPrefsDialog
+            self.anki_prefs_dialog = AnkiPrefsDialog(self.base)
+            if QT6:  # QT6 requires exec() instead of exec_()
+                self.anki_prefs_dialog.exec_ = getattr(self.anki_prefs_dialog, "exec")
+        
+        # Load current settings into the dialog
+        if hasattr(self.base, 'anki'):
+            settings = self.base.anki.get_settings()
+            self.anki_prefs_dialog.set_settings(settings)
+        
+        if self.anki_prefs_dialog.exec_() == QDialog.Accepted:
+            # Save settings back to anki integration
+            if hasattr(self.base, 'anki'):
+                settings = self.anki_prefs_dialog.get_settings()
+                self.base.anki.set_settings(settings)
 
     @Slot(int)
     def on_theme_box_currentIndexChanged(self, idx):

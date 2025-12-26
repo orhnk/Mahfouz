@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>FieldMappingDialog</class>
+ <widget class="QDialog" name="FieldMappingDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>500</width>
+    <height>400</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Configure Field Mappings</string>
+  </property>
+  <property name="modal">
+   <bool>true</bool>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_main">
+   <item>
+    <widget class="QLabel" name="info_label">
+     <property name="text">
+      <string>Configure how highlight data is mapped to Anki note fields.
+Select which note field each type of highlight data should go to.</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="note_type_group">
+     <property name="title">
+      <string>Note Type</string>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_note">
+      <item>
+       <widget class="QLabel" name="note_type_label">
+        <property name="text">
+         <string>Note Type:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="note_type_combo">
+        <property name="toolTip">
+         <string>Select the note type to configure</string>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>1</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="refresh_btn">
+        <property name="text">
+         <string>↻</string>
+        </property>
+        <property name="toolTip">
+         <string>Refresh note types from Anki</string>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>30</width>
+          <height>16777215</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="mapping_group">
+     <property name="title">
+      <string>Field Mappings</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_mapping">
+      <item row="0" column="0">
+       <widget class="QLabel" name="header_source">
+        <property name="text">
+         <string>Source Data</string>
+        </property>
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLabel" name="header_target">
+        <property name="text">
+         <string>Target Field</string>
+        </property>
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="highlight_label">
+        <property name="text">
+         <string>Highlight Text</string>
+        </property>
+        <property name="toolTip">
+         <string>The highlighted text from the book</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="highlight_combo">
+        <property name="toolTip">
+         <string>Select the note field for highlight text</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="comment_label">
+        <property name="text">
+         <string>Comment/Note</string>
+        </property>
+        <property name="toolTip">
+         <string>Your notes or comments on the highlight</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QComboBox" name="comment_combo">
+        <property name="toolTip">
+         <string>Select the note field for comments</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="page_label">
+        <property name="text">
+         <string>Page Number</string>
+        </property>
+        <property name="toolTip">
+         <string>The page number of the highlight</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QComboBox" name="page_combo">
+        <property name="toolTip">
+         <string>Select the note field for page number</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="chapter_label">
+        <property name="text">
+         <string>Chapter</string>
+        </property>
+        <property name="toolTip">
+         <string>The chapter where the highlight is from</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QComboBox" name="chapter_combo">
+        <property name="toolTip">
+         <string>Select the note field for chapter</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QLabel" name="date_label">
+        <property name="text">
+         <string>Date Created</string>
+        </property>
+        <property name="toolTip">
+         <string>When the highlight was created</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
+       <widget class="QComboBox" name="date_combo">
+        <property name="toolTip">
+         <string>Select the note field for date</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0">
+       <widget class="QLabel" name="book_title_label">
+        <property name="text">
+         <string>Book Title</string>
+        </property>
+        <property name="toolTip">
+         <string>The title of the book</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="1">
+       <widget class="QComboBox" name="book_title_combo">
+        <property name="toolTip">
+         <string>Select the note field for book title</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0">
+       <widget class="QLabel" name="author_label">
+        <property name="text">
+         <string>Author</string>
+        </property>
+        <property name="toolTip">
+         <string>The author of the book</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="1">
+       <widget class="QComboBox" name="author_combo">
+        <property name="toolTip">
+         <string>Select the note field for author</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="buttons_frame">
+     <layout class="QHBoxLayout" name="horizontalLayout_buttons">
+      <property name="margin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QPushButton" name="reset_btn">
+        <property name="text">
+         <string>Reset to Defaults</string>
+        </property>
+        <property name="toolTip">
+         <string>Reset field mappings to default values</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="button_box">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>button_box</sender>
+   <signal>accepted()</signal>
+   <receiver>FieldMappingDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>button_box</sender>
+   <signal>rejected()</signal>
+   <receiver>FieldMappingDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

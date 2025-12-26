@@ -37,7 +37,7 @@ else:  # Qt6
 
 from secondary import *
 from gui_main import Ui_Base
-
+from anki_integration import AnkiIntegration
 
 from packaging.version import parse as version_parse
 import pickle
@@ -184,6 +184,9 @@ class Base(QMainWindow, Ui_Base):
         self.auto_info = AutoInfo(self)
         self.filter = Filter(self)
         self.prefs = Prefs(self)
+        
+        # Initialize Anki integration
+        self.anki = AnkiIntegration(self)
 
         self.toolbar = ToolBar(self)
         self.tool_bar.addWidget(self.toolbar)
@@ -1438,6 +1441,13 @@ class Base(QMainWindow, Ui_Base):
             if QT6:  # QT6 requires exec() instead of exec_()
                 menu.exec_ = getattr(menu, "exec")
 
+            action = QAction(_("Open in Reader"), menu)
+            action.triggered.connect(self.open_book_at_highlight)
+            action.setIcon(self.ico_db_open)
+            menu.addAction(action)
+
+            menu.addSeparator()
+
             action = QAction(_("Comment"), menu)
             action.triggered.connect(self.on_edit_comment)
             action.setIcon(self.ico_file_edit)
@@ -1460,8 +1470,119 @@ class Base(QMainWindow, Ui_Base):
     @Slot()
     def on_high_list_itemDoubleClicked(self):
         """ An item on the Highlight List is double-clicked
+        Opens the book in KOReader at the highlight's position
         """
-        self.on_edit_comment()
+        self.open_book_at_highlight()
+
+    def open_book_at_highlight(self):
+        """ Opens the book in KOReader at the selected highlight's position
+        Uses a cache copy to avoid modifying the original reading position
+        """
+        if self.file_table.isVisible():  # from Book View
+            try:
+                high_row = self.sel_high_list[-1].row()
+            except IndexError:  # nothing selected
+                return
+            high_data = self.high_list.item(high_row).data(Qt.UserRole)
+            row = self.sel_idx.row()
+            meta_path = self.file_table.item(row, PATH).data(0)
+            data = self.file_table.item(row, TITLE).data(Qt.UserRole)
+            book_path = self.get_book_path(meta_path, data)[0]
+        elif self.high_table.isVisible():  # from Highlights View
+            try:
+                row = self.sel_high_view[-1].row()
+            except IndexError:  # nothing selected
+                return
+            high_data = self.high_table.item(row, HIGHLIGHT_H).data(Qt.UserRole)
+            book_path = high_data.get("path", "")
+            meta_path = high_data.get("meta_path", "")
+            if meta_path:
+                parent_data = self.get_parent_book_data(row)
+                if parent_data:
+                    data = parent_data[0]
+                else:
+                    data = None
+            else:
+                data = None
+        else:
+            return
+
+        if not book_path or not isfile(book_path):
+            self.popup(_("Error"), _("Book file not found!"))
+            return
+
+        # For new format annotations, we can set the position using a cache
+        if data and high_data.get("new") and high_data.get("idx"):
+            annotations = data.get("annotations", {})
+            idx = high_data["idx"]
+            if idx in annotations:
+                annotation = annotations[idx]
+                pos0 = annotation.get("pos0")
+                if pos0:
+                    # Create cache directory
+                    cache_dir = join(SETTINGS_DIR, "book_cache")
+                    os.makedirs(cache_dir, exist_ok=True)
+                    
+                    # Copy the book to cache
+                    book_filename = basename(book_path)
+                    book_name_no_ext = splitext(book_filename)[0]
+                    book_ext = splitext(book_filename)[1]  # includes the dot, e.g., ".epub"
+                    cached_book_path = join(cache_dir, book_filename)
+                    
+                    try:
+                        shutil.copy2(book_path, cached_book_path)
+                    except (IOError, OSError) as e:
+                        self.popup(_("Error"), _("Failed to copy book to cache: {}").format(str(e)))
+                        return
+                    
+                    # Create .sdr folder for the cached book (book_name.sdr, not book_name.epub.sdr)
+                    sdr_folder = join(cache_dir, book_name_no_ext + ".sdr")
+                    os.makedirs(sdr_folder, exist_ok=True)
+                    
+                    # Copy original .sdr folder contents if available
+                    if meta_path:
+                        original_sdr = dirname(meta_path)
+                        if isdir(original_sdr) and original_sdr.lower().endswith(".sdr"):
+                            # Copy all files from the original .sdr folder
+                            for item in os.listdir(original_sdr):
+                                src_item = join(original_sdr, item)
+                                dst_item = join(sdr_folder, item)
+                                try:
+                                    if isfile(src_item):
+                                        shutil.copy2(src_item, dst_item)
+                                except (IOError, OSError):
+                                    pass  # Continue even if some files fail to copy
+                    
+                    # Create/update metadata with highlight position
+                    # metadata file is named: metadata.<ext>.lua (e.g., metadata.epub.lua)
+                    cached_meta_path = join(sdr_folder, "metadata" + book_ext + ".lua")
+                    
+                    # Calculate approximate percent from page number
+                    pageno = annotation.get("pageno", 0)
+                    doc_pages = data.get("doc_pages", 1)
+                    if doc_pages > 0:
+                        new_percent = pageno / doc_pages
+                    else:
+                        new_percent = 0
+                    
+                    # Create a metadata dict with the position
+                    cache_data = deepcopy(data)
+                    cache_data["last_xpointer"] = pos0
+                    cache_data["percent_finished"] = new_percent
+                    
+                    # Save the metadata to cache
+                    try:
+                        encode_data(cached_meta_path, cache_data)
+                    except (IOError, OSError) as e:
+                        self.popup(_("Error"), _("Failed to create metadata: {}").format(str(e)))
+                        return
+                    
+                    # Open the cached book
+                    self.open_file(cached_book_path)
+                    return
+
+        # Fallback: just open the book without setting position
+        self.open_file(book_path)
 
     def on_edit_comment(self):
         """ Opens a window to edit the selected highlight's comment
@@ -1813,6 +1934,8 @@ class Base(QMainWindow, Ui_Base):
         column = index.column()
         if column == COMMENT_H:
             self.on_edit_comment()
+        else:
+            self.open_book_at_highlight()
 
     @Slot(QPoint)
     def on_high_table_customContextMenuRequested(self, point):
@@ -1833,6 +1956,12 @@ class Base(QMainWindow, Ui_Base):
         self.act_view_book.setData(row)
         self.act_view_book.setEnabled(self.toolbar.open_btn.isEnabled())
         menu.addAction(self.act_view_book)
+
+        action = QAction(_("Open at Highlight"), menu)
+        action.triggered.connect(self.open_book_at_highlight)
+        action.setIcon(self.ico_db_open)
+        action.setEnabled(self.toolbar.open_btn.isEnabled())
+        menu.addAction(action)
 
         highlights, comments, values = self.get_highlights(col)
 
@@ -2957,6 +3086,21 @@ class Base(QMainWindow, Ui_Base):
                 if idx and (idx % 2 == 0):
                     self.export_menu.addSeparator()
                 self.export_menu.addAction(action)
+        
+        # Add Anki export option
+        self.export_menu.addSeparator()
+        anki_action = QAction(_("📚 Export to Anki"), self.export_menu)
+        anki_action.triggered.connect(self.export_to_anki)
+        anki_action.setToolTip(_("Export highlights to Anki using AnkiConnect"))
+        self.export_menu.addAction(anki_action)
+
+    def export_to_anki(self):
+        """ Export the selected highlights to Anki using AnkiConnect
+        """
+        if not self.sel_indexes:
+            self.popup(_("Warning"), _("Please select at least one book to export."))
+            return
+        self.anki.export_to_anki()
 
     # noinspection PyCallByClass
     def on_export(self):
@@ -3325,6 +3469,9 @@ class Base(QMainWindow, Ui_Base):
             self.high_by_page = app_config.get("high_by_page", False)
             self.show_ref_pg = app_config.get("show_ref_pg", True)
             self.blocked_change(self.prefs.show_ref_pg_chk, self.show_ref_pg)
+            
+            # Load Anki settings
+            self.anki.load_settings(app_config)
         if self.highlight_width:
             self.header_high_view.resizeSection(HIGHLIGHT_H, self.highlight_width)
         if self.comment_width:
@@ -3404,6 +3551,9 @@ class Base(QMainWindow, Ui_Base):
                   "edit_lua_file_warning": self.edit_lua_file_warning,
                   "high_merge_warning": self.high_merge_warning,
                   }
+        # Add Anki settings
+        config.update(self.anki.save_settings())
+        
         try:
             for k, v in config.items():
 

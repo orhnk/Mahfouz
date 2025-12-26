@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>AnkiPrefs</class>
+ <widget class="QWidget" name="AnkiPrefs">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>450</width>
+    <height>500</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Anki Settings</string>
+  </property>
+  <property name="toolTip">
+   <string/>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_main">
+   <item>
+    <widget class="QGroupBox" name="connection_group">
+     <property name="title">
+      <string>Connection</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_connection">
+      <item row="0" column="0">
+       <widget class="QLabel" name="url_label">
+        <property name="text">
+         <string>AnkiConnect URL:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="anki_url_edit">
+        <property name="text">
+         <string>http://127.0.0.1:8765</string>
+        </property>
+        <property name="placeholderText">
+         <string>http://127.0.0.1:8765</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0" colspan="2">
+       <widget class="QFrame" name="connection_status_frame">
+        <property name="frameShape">
+         <enum>QFrame::StyledPanel</enum>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_status">
+         <property name="margin">
+          <number>6</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="connection_status_icon">
+           <property name="minimumSize">
+            <size>
+             <width>16</width>
+             <height>16</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16</width>
+             <height>16</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>●</string>
+           </property>
+           <property name="styleSheet">
+            <string>color: gray;</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="connection_status_label">
+           <property name="text">
+            <string>Not connected</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_status">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QPushButton" name="test_connection_btn">
+           <property name="text">
+            <string>Test Connection</string>
+           </property>
+           <property name="toolTip">
+            <string>Test the connection to Anki</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="deck_group">
+     <property name="title">
+      <string>Deck Settings</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_deck">
+      <item row="0" column="0">
+       <widget class="QLabel" name="parent_deck_label">
+        <property name="text">
+         <string>Parent Deck:</string>
+        </property>
+        <property name="toolTip">
+         <string>All book subdecks will be created under this deck</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="parent_deck_combo">
+        <property name="editable">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>Select or type the parent deck name. Books will be added as subdecks.</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <widget class="QPushButton" name="refresh_decks_btn">
+        <property name="text">
+         <string>↻</string>
+        </property>
+        <property name="toolTip">
+         <string>Refresh deck list from Anki</string>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>30</width>
+          <height>16777215</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0" colspan="3">
+       <widget class="QCheckBox" name="create_subdecks_chk">
+        <property name="text">
+         <string>Create subdecks for each book</string>
+        </property>
+        <property name="toolTip">
+         <string>When enabled, each book will have its own subdeck under the parent deck</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="note_type_group">
+     <property name="title">
+      <string>Note Type Settings</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_note">
+      <item row="0" column="0">
+       <widget class="QLabel" name="note_type_label">
+        <property name="text">
+         <string>Default Note Type:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="note_type_combo">
+        <property name="toolTip">
+         <string>Select the default note type for new cards</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <widget class="QPushButton" name="refresh_models_btn">
+        <property name="text">
+         <string>↻</string>
+        </property>
+        <property name="toolTip">
+         <string>Refresh note type list from Anki</string>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>30</width>
+          <height>16777215</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0" colspan="3">
+       <widget class="QPushButton" name="configure_fields_btn">
+        <property name="text">
+         <string>Configure Field Mappings...</string>
+        </property>
+        <property name="toolTip">
+         <string>Configure how highlight data maps to note fields</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="options_group">
+     <property name="title">
+      <string>Export Options</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_options">
+      <item>
+       <widget class="QCheckBox" name="allow_duplicates_chk">
+        <property name="text">
+         <string>Allow duplicate notes</string>
+        </property>
+        <property name="toolTip">
+         <string>When disabled, notes with identical content will be skipped</string>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="add_tags_chk">
+        <property name="text">
+         <string>Add tags to notes</string>
+        </property>
+        <property name="toolTip">
+         <string>Add book title and chapter as tags</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="include_chapter_chk">
+        <property name="text">
+         <string>Include chapter in cards</string>
+        </property>
+        <property name="toolTip">
+         <string>Add chapter information to the card content</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="include_page_chk">
+        <property name="text">
+         <string>Include page number in cards</string>
+        </property>
+        <property name="toolTip">
+         <string>Add page number to the card content</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="include_date_chk">
+        <property name="text">
+         <string>Include highlight date in cards</string>
+        </property>
+        <property name="toolTip">
+         <string>Add the date the highlight was created</string>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="show_export_dialog_chk">
+        <property name="text">
+         <string>Always show export dialog before sending</string>
+        </property>
+        <property name="toolTip">
+         <string>Show a dialog with export options each time you export to Anki</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
