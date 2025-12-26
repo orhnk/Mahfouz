@@ -2008,6 +2008,11 @@ class Base(QMainWindow, Ui_Base):
         action.setIcon(self.ico_file_save)
         menu.addAction(action)
 
+        action = QAction(_("📚 Export to Anki"), menu)
+        action.triggered.connect(self.export_highlights_to_anki)
+        action.setToolTip(_("Export selected highlights to Anki"))
+        menu.addAction(action)
+
         menu.addSeparator()
         action = QAction(_("Delete") + "\tDel", menu)
         action.setIcon(self.ico_files_delete)
@@ -3101,6 +3106,51 @@ class Base(QMainWindow, Ui_Base):
             self.popup(_("Warning"), _("Please select at least one book to export."))
             return
         self.anki.export_to_anki()
+
+    def export_highlights_to_anki(self):
+        """ Export the selected highlights from Highlights view to Anki
+        """
+        if not self.sel_high_view:
+            self.popup(_("Warning"), _("Please select at least one highlight to export."))
+            return
+        
+        # Group highlights by book
+        books_data = {}
+        for idx in self.sel_high_view:
+            row = idx.row()
+            data = self.high_table.item(row, HIGHLIGHT_H).data(Qt.UserRole)
+            
+            # Get book info from the highlight data
+            book_title = data.get("title", _("Unknown Book"))
+            author = data.get("authors", "")
+            meta_path = data.get("meta_path", "")
+            
+            # Use meta_path as unique key for grouping
+            book_key = meta_path or book_title
+            
+            if book_key not in books_data:
+                books_data[book_key] = {
+                    "title": book_title,
+                    "author": author,
+                    "path": data.get("path", ""),
+                    "highlights": []
+                }
+            
+            # Add highlight data
+            highlight_info = {
+                "text": data.get("text", ""),
+                "comment": data.get("comment", ""),
+                "page": data.get("page", ""),
+                "chapter": data.get("chapter", ""),
+                "date": data.get("date", "")
+            }
+            books_data[book_key]["highlights"].append(highlight_info)
+        
+        # Convert to list format expected by anki integration
+        books_list = list(books_data.values())
+        
+        # Export using the anki integration
+        self.anki.export_highlights(books_list)
 
     # noinspection PyCallByClass
     def on_export(self):

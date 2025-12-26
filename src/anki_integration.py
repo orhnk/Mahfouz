@@ -272,6 +272,26 @@ class AnkiIntegration:
         else:
             self._quick_export(books_data)
     
+    def export_highlights(self, books_data: list):
+        """
+        Export pre-formatted highlights to Anki (from Highlights view).
+        
+        This method accepts highlights that are already extracted and formatted,
+        rather than reading from the KOReader metadata files.
+        
+        :param books_data: List of dicts with 'title', 'author', 'highlights' keys
+        """
+        if not books_data:
+            self.base.popup(_("Warning"), 
+                           _("No highlights selected for export."))
+            return
+        
+        # Check if we should show dialog
+        if self._settings.get("show_export_dialog", True):
+            self._show_export_dialog(books_data)
+        else:
+            self._quick_export(books_data)
+    
     def _show_export_dialog(self, books_data: list):
         """
         Show the Anki export dialog.
