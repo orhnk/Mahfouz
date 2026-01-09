@@ -20,18 +20,20 @@ DEFAULT_ANKI_URL = "http://127.0.0.1:8765"
 DEFAULT_ANKI_VERSION = 6
 
 # Default note types
-DEFAULT_NOTE_TYPE = "Basic"
+DEFAULT_NOTE_TYPE = "Makhfouz Highlight"
+MAKHFOUZ_NOTE_TYPE = "Makhfouz Highlight"
 DEFAULT_CLOZE_TYPE = "Cloze"
 
-# Default field mappings for Basic note type
+# Default field mappings for the Makhfouz note type
 DEFAULT_FIELD_MAPPINGS = {
     "highlight": "Front",
     "comment": "Back",
-    "page": "Back",
-    "chapter": "Back",
-    "date": "Back",
-    "book_title": "Back",
-    "author": "Back"
+    "book_title": "Source",
+    "chapter": "Chapter",
+    "page": "Page",
+    "date": "Date",
+    "author": "Author",
+    "uid": "UID"
 }
 
 
@@ -263,6 +265,185 @@ class AnkiConnect:
         :return: List of field names
         """
         return self._request("modelFieldNames", modelName=model_name)
+
+    def add_field_to_model(self, model_name: str, field_name: str, index: Optional[int] = None):
+        """Add a field to an existing note type if supported by AnkiConnect."""
+        params = {"modelName": model_name, "fieldName": field_name}
+        if index is not None:
+            params["index"] = index
+        self._request("modelFieldAdd", **params)
+
+    def create_model(self, name: str, fields: List[str], css: str, templates: List[Dict[str, Any]]):
+        """
+        Create a custom note model.
+        
+        :param name: Model name
+        :param fields: List of field names
+        :param css: CSS styling
+        :param templates: Card templates definitions
+        """
+        return self._request("createModel", modelName=name, inOrderFields=fields,
+                              css=css, cardTemplates=templates)
+
+    def ensure_makhfouz_model(self, field_mapping: Dict[str, str]):
+        """Ensure the custom Makhfouz note type exists with expected fields/templates."""
+        try:
+            models = self.get_model_names()
+        except AnkiConnectError:
+            pass
+
+        fields = ["Front", "Back", "Source", "Author", "Chapter", "Page", "Date", "UID"]
+
+        css = """
+        .card {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            font-size: 17px;
+            color: #1f2933;
+            background: #e5e7eb;
+        }
+        .card-body {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 18px;
+        }
+        .panel {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+            border: 1px solid #e5e7eb;
+            padding: 18px 20px;
+        }
+        .comment {
+            font-weight: 600;
+            line-height: 1.6;
+            color: #111827;
+        }
+        .comment.empty {
+            font-weight: 500;
+            color: #6b7280;
+        }
+        .title {
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            color: #334155;
+            margin: 6px 0 10px;
+        }
+        .divider {
+            margin: 16px 0 12px;
+            border: none;
+            border-top: 1px solid #e5e7eb;
+        }
+        .divider.short {
+            width: 46px;
+            margin: 14px auto;
+        }
+        .highlight {
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 6px 0;
+            font-family: 'Georgia', 'Times New Roman', serif;
+            font-size: 18px;
+            line-height: 1.7;
+            color: #0f172a;
+            text-align: left;
+        }
+        .highlight p { margin: 0 0 12px; }
+        .highlight p:last-child { margin-bottom: 0; }
+        .author {
+            margin-top: 12px;
+            font-size: 14px;
+            color: #475569;
+            text-align: left;
+            font-style: italic;
+        }
+        .pagech {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #475569;
+            text-align: center;
+        }
+        .date {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #6b7280;
+            text-align: left;
+        }
+        """
+
+        front_template = {
+            "Name": "Card 1",
+            "Front": """
+<div class="card-body">
+    <div class="panel">
+        {{#Back}}
+        <div class="comment">{{Back}}</div>
+        {{/Back}}
+        {{^Back}}
+            {{#Front}}
+            <div class="comment">{{Front}}</div>
+            {{/Front}}
+            {{^Front}}
+            <div class="comment empty">💬 Keine Notiz</div>
+            {{/Front}}
+        {{/Back}}
+        <hr class="divider short">
+        {{#Source}}<div class="title">{{Source}}</div>{{/Source}}
+    </div>
+</div>
+""",
+            "Back": """
+{{FrontSide}}
+<hr class="divider" id="answer">
+<div class="card-body">
+    <div class="panel">
+        {{#Source}}<div class="title">{{Source}}</div>{{/Source}}
+        {{#Front}}<div class="highlight">{{Front}}</div>{{/Front}}
+        {{#Author}}<div class="author">~{{Author}}</div>{{/Author}}
+        {{#Page}}{{#Chapter}}<div class="pagech">{{Page}} – {{Chapter}}</div>{{/Chapter}}{{/Page}}
+        {{#Page}}{{^Chapter}}<div class="pagech">{{Page}}</div>{{/Chapter}}{{/Page}}
+        {{^Page}}{{#Chapter}}<div class="pagech">{{Chapter}}</div>{{/Chapter}}{{/Page}}
+        {{#Date}}<div class="date">{{Date}}</div>{{/Date}}
+    </div>
+</div>
+"""
+        }
+
+        # If model exists, update styling/templates instead of recreating
+        try:
+            if MAKHFOUZ_NOTE_TYPE in (models if 'models' in locals() else []):
+                try:
+                    existing_fields = self.get_model_field_names(MAKHFOUZ_NOTE_TYPE)
+                    missing_fields = [f for f in fields if f not in existing_fields]
+                    for mf in missing_fields:
+                        try:
+                            self.add_field_to_model(MAKHFOUZ_NOTE_TYPE, mf)
+                        except AnkiConnectError:
+                            pass
+
+                    self._request("updateModelStyling", model={"name": MAKHFOUZ_NOTE_TYPE, "css": css})
+                    self._request("updateModelTemplates", model={
+                        "name": MAKHFOUZ_NOTE_TYPE,
+                        "templates": {
+                            "Card 1": {
+                                "Front": front_template["Front"],
+                                "Back": front_template["Back"],
+                            }
+                        }
+                    })
+                except AnkiConnectError:
+                    pass
+                return
+        except AnkiConnectError:
+            pass
+
+        try:
+            self.create_model(MAKHFOUZ_NOTE_TYPE, fields, css, [front_template])
+        except AnkiConnectError:
+            # If model creation fails (e.g., insufficient permissions), just continue;
+            # user can select an existing model.
+            pass
     
     def get_model_templates(self, model_name: str) -> Dict:
         """
@@ -519,7 +700,8 @@ class AnkiConnect:
                             highlights: List[Dict], field_mapping: Dict[str, str],
                             tags: Optional[List[str]] = None,
                             allow_duplicate: bool = False,
-                            progress_callback: Optional[callable] = None) -> Tuple[int, int, List[str]]:
+                            progress_callback: Optional[callable] = None,
+                            front_content: str = "comment") -> Tuple[int, int, List[str]]:
         """
         Add multiple highlights as notes.
         
@@ -534,13 +716,65 @@ class AnkiConnect:
         """
         # Get available fields for the model
         available_fields = self.get_model_field_names(model_name)
-        
+
+        # Adapt mapping to available fields to avoid dropping all content
+        def pick_fallback(preferred: List[str]) -> Optional[str]:
+            for name in preferred:
+                if name in available_fields:
+                    return name
+            return available_fields[0] if available_fields else None
+
+        if not available_fields:
+            raise AnkiConnectError("Selected note type has no fields.")
+
+        remapped_mapping: Dict[str, str] = {}
+        for source, target in field_mapping.items():
+            if target in available_fields:
+                remapped_mapping[source] = target
+            else:
+                # choose sensible fallback
+                if source == "highlight":
+                    fallback = pick_fallback(["Front", available_fields[0] if available_fields else None])
+                elif source == "comment":
+                    fallback = pick_fallback(["Back", "Front", available_fields[0] if available_fields else None])
+                else:
+                    fallback = pick_fallback(["Back", "Front", available_fields[-1] if available_fields else None])
+                if fallback:
+                    remapped_mapping[source] = fallback
+
+        # Ensure highlight/comment always have a target
+        if "highlight" not in remapped_mapping:
+            remapped_mapping["highlight"] = pick_fallback(["Front", available_fields[0]])
+        if "comment" not in remapped_mapping:
+            remapped_mapping["comment"] = pick_fallback(["Back", "Front", available_fields[min(1, len(available_fields)-1)]])
+
         # Prepare all notes
         notes = []
+        note_debugs = []  # keep debug info aligned with notes list
+        skipped_empty = 0
+        success_count = 0
+        fail_count = 0
+        errors = []
+        total_items = len(highlights)
+        processed = 0
+
+        highlight_field_name = remapped_mapping.get("highlight")
+        comment_field_name = remapped_mapping.get("comment")
+
         for highlight_data in highlights:
+            # Drop notes with no textual content up front
+            base_highlight = str(highlight_data.get("highlight", highlight_data.get("text", "")) or "").strip()
+            base_comment = str(highlight_data.get("comment", "") or "").strip()
+            if not (base_highlight or base_comment):
+                skipped_empty += 1
+                processed += 1
+                if progress_callback:
+                    progress_callback(processed, total_items)
+                continue
+
             fields = {field: "" for field in available_fields}
             
-            for source_field, target_field in field_mapping.items():
+            for source_field, target_field in remapped_mapping.items():
                 if target_field in available_fields:
                     value = highlight_data.get(source_field, "")
                     if value:
@@ -548,7 +782,36 @@ class AnkiConnect:
                             fields[target_field] += f"<br><br>{value}"
                         else:
                             fields[target_field] = value
-            
+
+            # If still empty after mapping, force a fallback placement of base text
+            if not any(str(val).strip() for val in fields.values()):
+                fallback_field = highlight_field_name or available_fields[0]
+                fields[fallback_field] = base_highlight or base_comment
+            # If there is no comment, copy the highlight into the comment field (keep highlight field intact for Front)
+            if not base_comment and base_highlight:
+                target_comment_field = comment_field_name
+                if not target_comment_field:
+                    target_comment_field = "Back" if "Back" in available_fields else pick_fallback([available_fields[0]])
+                if target_comment_field:
+                    fields[target_comment_field] = base_highlight
+
+            # Apply front/back preference
+            if front_content == "highlight" and highlight_field_name:
+                highlight_val = fields.get(highlight_field_name, "")
+                comment_val = fields.get(comment_field_name, fields.get("Back", ""))
+                if highlight_val:
+                    fields["Front"] = highlight_val
+                if comment_val:
+                    fields["Back"] = comment_val
+
+            # Final guard: if still empty after front/back adjustments, skip
+            if not any(str(val).strip() for val in fields.values()):
+                skipped_empty += 1
+                processed += 1
+                if progress_callback:
+                    progress_callback(processed, total_items)
+                continue
+
             note = {
                 "deckName": deck_name,
                 "modelName": model_name,
@@ -561,30 +824,86 @@ class AnkiConnect:
             if tags:
                 note["tags"] = tags
             notes.append(note)
+
+            # capture debug info for clearer error messages
+            note_debugs.append({
+                "front": fields.get("Front", ""),
+                "back": fields.get("Back", ""),
+                "highlight": base_highlight,
+                "comment": base_comment,
+                "book": highlight_data.get("book_title") or highlight_data.get("title") or "",
+                "chapter": str(highlight_data.get("chapter", "")),
+                "page": str(highlight_data.get("page", "")),
+            })
         
-        # Add notes in batches
-        success_count = 0
-        fail_count = 0
-        errors = []
+        # Add remaining notes (without UID) in batches
         batch_size = 50  # Add notes in batches of 50
         
         for i in range(0, len(notes), batch_size):
             batch = notes[i:i + batch_size]
+            debug_batch = note_debugs[i:i + batch_size]
+
+            # If duplicates are disallowed, pre-check which notes can be added
+            eligible_batch = batch
+            eligible_debug = debug_batch
+            if not allow_duplicate:
+                try:
+                    eligibility = self.can_add_notes(batch)
+                    eligible_batch = []
+                    eligible_debug = []
+                    for note, dbg, ok in zip(batch, debug_batch, eligibility):
+                        if ok:
+                            eligible_batch.append(note)
+                            eligible_debug.append(dbg)
+                        else:
+                            fail_count += 1
+                            front_preview = dbg.get("front") or dbg.get("highlight") or ""
+                            back_preview = dbg.get("back") or dbg.get("comment") or ""
+                            book = dbg.get("book", "")
+                            chapter = dbg.get("chapter", "")
+                            page = dbg.get("page", "")
+                            errors.append(
+                                f"Duplicate skipped @batch {i//batch_size+1}: book='{book}' chapter='{chapter}' page='{page}' front='{front_preview[:80]}' back='{back_preview[:80]}'"
+                            )
+                except AnkiConnectError:
+                    # If canAddNotes fails, fall back to attempting addNotes
+                    eligible_batch = batch
+                    eligible_debug = debug_batch
+
             try:
-                results = self.add_notes(batch)
+                if not eligible_batch:
+                    processed += len(batch)
+                    if progress_callback:
+                        progress_callback(processed, total_items)
+                    continue
+
+                results = self.add_notes(eligible_batch)
                 for j, result in enumerate(results):
                     if result is not None:
                         success_count += 1
                     else:
                         fail_count += 1
-                        errors.append(f"Failed to add note {i + j + 1}")
+                        dbg = eligible_debug[j] if j < len(eligible_debug) else {}
+                        front_preview = dbg.get("front") or dbg.get("highlight") or ""
+                        back_preview = dbg.get("back") or dbg.get("comment") or ""
+                        book = dbg.get("book", "")
+                        chapter = dbg.get("chapter", "")
+                        page = dbg.get("page", "")
+                        errors.append(
+                            f"Failed to add note @batch {i//batch_size+1}, idx {j+1}: book='{book}' chapter='{chapter}' page='{page}' front='{front_preview[:80]}' back='{back_preview[:80]}'"
+                        )
             except AnkiConnectError as e:
                 fail_count += len(batch)
                 errors.append(str(e))
             
+            processed += len(batch)
             if progress_callback:
-                progress_callback(min(i + batch_size, len(notes)), len(notes))
+                progress_callback(processed, total_items)
         
+        # Account for skipped empties
+        if skipped_empty:
+            fail_count += skipped_empty
+            errors.append(f"Skipped {skipped_empty} empty highlight(s)")
         return success_count, fail_count, errors
 
 

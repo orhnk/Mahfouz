@@ -1349,6 +1349,9 @@ class Base(QMainWindow, Ui_Base):
             for idx in annotations:
                 highlight = self.get_new_highlight_info(data, idx)
                 if highlight:
+                    uid_base = meta_path or path or title
+                    uid_local = highlight.get("uid") or f"{highlight.get('idx', idx)}:{highlight.get('page', '')}"
+                    highlight["uid"] = f"{uid_base}::{uid_local}"
                     # noinspection PyTypeChecker
                     highlight.update(common)
                     highlights.append(highlight)
@@ -1358,6 +1361,9 @@ class Base(QMainWindow, Ui_Base):
                     for page_id in data["highlight"][page]:
                         highlight = self.get_old_highlight_info(data, page, page_id)
                         if highlight:
+                            uid_base = meta_path or path or title
+                            uid_local = highlight.get("uid") or f"{highlight.get('page', page)}:{highlight.get('page_id', page_id)}"
+                            highlight["uid"] = f"{uid_base}::{uid_local}"
                             # noinspection PyTypeChecker
                             highlight.update(common)
                             highlights.append(highlight)
@@ -1384,11 +1390,14 @@ class Base(QMainWindow, Ui_Base):
             ref_page = int(ref_page)
         else:
             ref_page = None
+        uid_candidate = (high_data.get("uuid") or high_data.get("id") or
+                         f"{high_data.get('pos0', '')}:{high_data.get('pos1', '')}:{idx}")
         highlight = {"text": high_data.get("text", "").replace("\\\n", "\n"),
                      "chapter": high_data.get("chapter", ""),
                      "comment": high_data.get("note", "").replace("\\\n", "\n"),
                      "date": high_data.get("datetime", ""), "idx": idx,
-                     "page": page, "ref_page": ref_page, "pages": pages, "new": True}
+                     "page": page, "ref_page": ref_page, "pages": pages, "new": True,
+                     "uid": uid_candidate}
         return highlight
 
     @staticmethod
@@ -3119,15 +3128,23 @@ class Base(QMainWindow, Ui_Base):
         for idx in self.sel_high_view:
             row = idx.row()
             data = self.high_table.item(row, HIGHLIGHT_H).data(Qt.UserRole)
-            
-            # Get book info from the highlight data
-            book_title = data.get("title", _("Unknown Book"))
-            author = data.get("authors", "")
+
+            # Locate parent book info from file_table using meta_path
             meta_path = data.get("meta_path", "")
-            
-            # Use meta_path as unique key for grouping
+            book_title = data.get("title", "")
+            author = data.get("authors", "")
+            if meta_path:
+                for i in range(self.file_table.rowCount()):
+                    if meta_path == self.file_table.item(i, PATH).data(0):
+                        book_title = self.file_table.item(i, TITLE).data(0) or book_title or _("Unknown Book")
+                        author_val = self.file_table.item(i, AUTHOR).data(0)
+                        if author_val not in [OLD_TYPE, NO_AUTHOR]:
+                            author = author_val
+                        break
+
+            book_title = book_title or _("Unknown Book")
             book_key = meta_path or book_title
-            
+
             if book_key not in books_data:
                 books_data[book_key] = {
                     "title": book_title,
@@ -3135,20 +3152,26 @@ class Base(QMainWindow, Ui_Base):
                     "path": data.get("path", ""),
                     "highlights": []
                 }
-            
-            # Add highlight data
+
+            # Add highlight data; ensure 'highlight' alias is present for field mapping
+            text_val = data.get("text", "")
             highlight_info = {
-                "text": data.get("text", ""),
+                "text": text_val,
+                "highlight": text_val,
                 "comment": data.get("comment", ""),
                 "page": data.get("page", ""),
                 "chapter": data.get("chapter", ""),
-                "date": data.get("date", "")
+                "date": data.get("date", ""),
+                "book_title": book_title,
+                "author": author,
+                "uid": data.get("uid", ""),
+                "meta_path": meta_path
             }
             books_data[book_key]["highlights"].append(highlight_info)
-        
+
         # Convert to list format expected by anki integration
         books_list = list(books_data.values())
-        
+
         # Export using the anki integration
         self.anki.export_highlights(books_list)
 

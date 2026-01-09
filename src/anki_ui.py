@@ -34,7 +34,8 @@ else:  # Qt6
     from PySide6.QtGui import QIcon
 
 from anki_connect import (AnkiConnect, AnkiConnectError, get_anki_connect,
-                          DEFAULT_ANKI_URL, DEFAULT_NOTE_TYPE, DEFAULT_FIELD_MAPPINGS)
+                          DEFAULT_ANKI_URL, DEFAULT_NOTE_TYPE, DEFAULT_FIELD_MAPPINGS,
+                          MAKHFOUZ_NOTE_TYPE)
 
 __author__ = "KOHighlights"
 
@@ -48,7 +49,7 @@ class AnkiExportThread(QThread):
     
     def __init__(self, anki: AnkiConnect, deck_name: str, model_name: str,
                  highlights: List[Dict], field_mapping: Dict, tags: List[str],
-                 allow_duplicate: bool, create_subdecks: bool, parent=None):
+                 allow_duplicate: bool, create_subdecks: bool, front_content: str = "comment", parent=None):
         super().__init__(parent)
         self.anki = anki
         self.deck_name = deck_name
@@ -58,6 +59,7 @@ class AnkiExportThread(QThread):
         self.tags = tags
         self.allow_duplicate = allow_duplicate
         self.create_subdecks = create_subdecks
+        self.front_content = front_content
     
     def run(self):
         try:
@@ -68,7 +70,8 @@ class AnkiExportThread(QThread):
                 self.field_mapping,
                 self.tags,
                 self.allow_duplicate,
-                lambda current, total: self.progress.emit(current, total)
+                lambda current, total: self.progress.emit(current, total),
+                front_content=self.front_content
             )
             self.finished_export.emit(success, fail, errors)
         except AnkiConnectError as e:
@@ -165,10 +168,16 @@ class AnkiPrefsWidget(QWidget):
         self.refresh_models_btn.setMaximumWidth(30)
         self.refresh_models_btn.setToolTip(_("Refresh note type list from Anki"))
         note_layout.addWidget(self.refresh_models_btn, 0, 2)
-        
+
+        # Default mapping helper text
+        mapping_help = QLabel(_("Default mapping: highlight → Front, comment → Back, title → Source, author → Author, chapter → Chapter, page → Page, date → Date, uid → UID."))
+        mapping_help.setWordWrap(True)
+        mapping_help.setStyleSheet("color: gray; font-size: 11px;")
+        note_layout.addWidget(mapping_help, 1, 0, 1, 3)
+
         self.configure_fields_btn = QPushButton(_("Configure Field Mappings..."))
         self.configure_fields_btn.setToolTip(_("Configure how highlight data maps to note fields"))
-        note_layout.addWidget(self.configure_fields_btn, 1, 0, 1, 3)
+        note_layout.addWidget(self.configure_fields_btn, 2, 0, 1, 3)
         
         layout.addWidget(note_group)
         
@@ -184,6 +193,20 @@ class AnkiPrefsWidget(QWidget):
         self.add_tags_chk.setChecked(True)
         self.add_tags_chk.setToolTip(_("Add book title and chapter as tags"))
         options_layout.addWidget(self.add_tags_chk)
+
+        self.overwrite_deck_chk = QCheckBox(_("Overwrite deck (delete existing cards)"))
+        self.overwrite_deck_chk.setToolTip(_("Warning: deletes the target deck and all its cards before export"))
+        options_layout.addWidget(self.overwrite_deck_chk)
+
+        front_layout = QHBoxLayout()
+        front_layout.addWidget(QLabel(_("Front shows:")))
+        self.front_content_combo = QComboBox()
+        self.front_content_combo.addItem(_("Comment & metadata"), "comment")
+        self.front_content_combo.addItem(_("Highlight text"), "highlight")
+        self.front_content_combo.setToolTip(_("Choose whether the card front shows your comment or the highlight"))
+        front_layout.addWidget(self.front_content_combo)
+        front_layout.addStretch()
+        options_layout.addLayout(front_layout)
         
         self.include_chapter_chk = QCheckBox(_("Include chapter in cards"))
         self.include_chapter_chk.setChecked(True)
@@ -274,6 +297,8 @@ class AnkiPrefsWidget(QWidget):
         """Refresh the list of note types from Anki."""
         try:
             anki = self.get_anki()
+            # Ensure Makhfouz model exists so it appears in the list
+            anki.ensure_makhfouz_model(self.get_settings().get("field_mappings", DEFAULT_FIELD_MAPPINGS))
             models = anki.get_model_names(force_refresh=True)
             
             current = self.note_type_combo.currentText()
@@ -314,10 +339,12 @@ class AnkiPrefsWidget(QWidget):
             "note_type": self.note_type_combo.currentText() or DEFAULT_NOTE_TYPE,
             "allow_duplicates": self.allow_duplicates_chk.isChecked(),
             "add_tags": self.add_tags_chk.isChecked(),
+            "overwrite_deck": self.overwrite_deck_chk.isChecked(),
             "include_chapter": self.include_chapter_chk.isChecked(),
             "include_page": self.include_page_chk.isChecked(),
             "include_date": self.include_date_chk.isChecked(),
             "show_export_dialog": self.show_export_dialog_chk.isChecked(),
+            "front_content": self.front_content_combo.currentData(),
             "field_mappings": getattr(self, '_field_mappings', DEFAULT_FIELD_MAPPINGS.copy())
         }
     
@@ -341,10 +368,19 @@ class AnkiPrefsWidget(QWidget):
         
         self.allow_duplicates_chk.setChecked(settings.get("allow_duplicates", False))
         self.add_tags_chk.setChecked(settings.get("add_tags", True))
+        self.overwrite_deck_chk.setChecked(settings.get("overwrite_deck", False))
         self.include_chapter_chk.setChecked(settings.get("include_chapter", True))
         self.include_page_chk.setChecked(settings.get("include_page", True))
         self.include_date_chk.setChecked(settings.get("include_date", False))
+        front_value = settings.get("front_content", "comment")
+        idx = self.front_content_combo.findData(front_value)
+        if idx >= 0:
+            self.front_content_combo.setCurrentIndex(idx)
         self.show_export_dialog_chk.setChecked(settings.get("show_export_dialog", True))
+        front_value = settings.get("front_content", "comment")
+        idx = self.front_content_combo.findData(front_value)
+        if idx >= 0:
+            self.front_content_combo.setCurrentIndex(idx)
         
         self._field_mappings = settings.get("field_mappings", DEFAULT_FIELD_MAPPINGS.copy())
 
@@ -676,23 +712,6 @@ class AnkiExportDialog(QDialog):
         self.refresh_models_btn.setToolTip(_("Refresh note type list"))
         note_layout.addWidget(self.refresh_models_btn, 0, 2)
         
-        # Field Mappings Sub-group
-        field_group = QGroupBox(_("Field Mappings"))
-        field_layout = QGridLayout(field_group)
-        
-        field_layout.addWidget(QLabel(_("Highlight →")), 0, 0)
-        self.highlight_field_combo = QComboBox()
-        field_layout.addWidget(self.highlight_field_combo, 0, 1)
-        
-        field_layout.addWidget(QLabel(_("Comment →")), 1, 0)
-        self.comment_field_combo = QComboBox()
-        field_layout.addWidget(self.comment_field_combo, 1, 1)
-        
-        field_layout.addWidget(QLabel(_("Metadata →")), 2, 0)
-        self.metadata_field_combo = QComboBox()
-        field_layout.addWidget(self.metadata_field_combo, 2, 1)
-        
-        note_layout.addWidget(field_group, 1, 0, 1, 3)
         layout.addWidget(note_group)
         
         # Export Options
@@ -706,6 +725,11 @@ class AnkiExportDialog(QDialog):
         self.add_tags_chk = QCheckBox(_("Add tags"))
         self.add_tags_chk.setChecked(self.settings.get("add_tags", True))
         options_layout.addWidget(self.add_tags_chk, 0, 1)
+        
+        self.overwrite_deck_chk = QCheckBox(_("Overwrite deck (delete existing cards)"))
+        self.overwrite_deck_chk.setChecked(self.settings.get("overwrite_deck", False))
+        self.overwrite_deck_chk.setToolTip(_("Warning: deletes the target deck(s) before export"))
+        options_layout.addWidget(self.overwrite_deck_chk, 0, 2)
         
         self.include_chapter_chk = QCheckBox(_("Include chapter"))
         self.include_chapter_chk.setChecked(self.settings.get("include_chapter", True))
@@ -775,8 +799,6 @@ class AnkiExportDialog(QDialog):
         self.deck_combo.currentTextChanged.connect(self._update_deck_preview)
         self.create_subdecks_chk.stateChanged.connect(self._update_deck_preview)
         
-        self.note_type_combo.currentTextChanged.connect(self._load_fields)
-        
         # Update preview when options change
         for chk in [self.include_chapter_chk, self.include_page_chk, 
                     self.include_date_chk, self.include_book_info_chk]:
@@ -794,6 +816,9 @@ class AnkiExportDialog(QDialog):
         try:
             url = self.settings.get("anki_url", DEFAULT_ANKI_URL)
             self.anki = AnkiConnect(url)
+            # Ensure custom model exists if using the default Makhfouz type
+            if self.settings.get("note_type", DEFAULT_NOTE_TYPE) == MAKHFOUZ_NOTE_TYPE:
+                self.anki.ensure_makhfouz_model(self.settings.get("field_mappings", DEFAULT_FIELD_MAPPINGS))
             success, message = self.anki.test_connection()
             
             if success:
@@ -886,6 +911,9 @@ class AnkiExportDialog(QDialog):
             return
         
         try:
+            # Ensure custom model exists if default is selected
+            if self.settings.get("note_type", DEFAULT_NOTE_TYPE) == MAKHFOUZ_NOTE_TYPE:
+                self.anki.ensure_makhfouz_model(self.settings.get("field_mappings", DEFAULT_FIELD_MAPPINGS))
             models = self.anki.get_model_names(force_refresh=True)
             current = self.note_type_combo.currentText() or self.settings.get("note_type", DEFAULT_NOTE_TYPE)
             
@@ -901,36 +929,8 @@ class AnkiExportDialog(QDialog):
             self.note_type_combo.addItem(DEFAULT_NOTE_TYPE)
     
     def _load_fields(self, model_name: str):
-        """Load fields for the selected note type."""
-        fields = []
-        
-        if self.anki and model_name:
-            try:
-                fields = self.anki.get_model_field_names(model_name)
-            except AnkiConnectError:
-                fields = ["Front", "Back"]
-        else:
-            fields = ["Front", "Back"]
-        
-        for combo in [self.highlight_field_combo, self.comment_field_combo, 
-                      self.metadata_field_combo]:
-            current = combo.currentText()
-            combo.clear()
-            combo.addItems(fields)
-            
-            idx = combo.findText(current)
-            if idx >= 0:
-                combo.setCurrentIndex(idx)
-        
-        # Set sensible defaults if fields are empty
-        if fields:
-            if self.highlight_field_combo.currentIndex() < 0:
-                self.highlight_field_combo.setCurrentIndex(0)  # First field for highlight
-            if self.comment_field_combo.currentIndex() < 0 and len(fields) > 1:
-                self.comment_field_combo.setCurrentIndex(1)  # Second field for comment
-            if self.metadata_field_combo.currentIndex() < 0 and len(fields) > 1:
-                self.metadata_field_combo.setCurrentIndex(1)  # Second field for metadata
-        
+        """Previously loaded field mappings from Anki; retained for compatibility."""
+        # Field mappings are now managed in settings. Keep preview responsive.
         self._update_preview()
     
     def _update_deck_preview(self):
@@ -966,14 +966,15 @@ class AnkiExportDialog(QDialog):
             self.preview_text.setPlainText(_("No highlights selected"))
             return
         
-        # Build preview
-        front_field = self.highlight_field_combo.currentText()
-        back_field = self.comment_field_combo.currentText()
+        mapping = self.settings.get("field_mappings", DEFAULT_FIELD_MAPPINGS)
+        front_field = mapping.get("highlight", "Front")
+        back_field = mapping.get("comment", "Back")
+
+        front_content = highlight_data.get("highlight", highlight_data.get("text", ""))
+        back_header = f"<b>{back_field}:</b><br>" if back_field else ""
         
-        front = f"<b>{front_field}:</b><br>"
-        front += highlight_data.get("highlight", highlight_data.get("text", ""))
-        
-        back = f"<b>{back_field}:</b><br>"
+        front = f"<b>{front_field}:</b><br>{front_content}"
+        back = back_header
         parts = []
         
         if self.include_book_info_chk.isChecked():
@@ -1034,34 +1035,32 @@ class AnkiExportDialog(QDialog):
             author = book.get("author", "")
             
             for highlight in book.get("highlights", []):
+                highlight_text = highlight.get("text", highlight.get("highlight", ""))
+                comment_text = highlight.get("comment", "")
+
+                # Skip notes with no meaningful content to avoid Anki "empty note" errors
+                if not (highlight_text.strip() or comment_text.strip()):
+                    continue
+
                 prepared = {
-                    "highlight": highlight.get("text", highlight.get("highlight", "")),
-                    "comment": highlight.get("comment", "") if self.include_chapter_chk.isChecked() else "",
+                    "highlight": highlight_text,
+                    "comment": comment_text,  # comment is always included if present
                     "page": highlight.get("page", "") if self.include_page_chk.isChecked() else "",
                     "chapter": highlight.get("chapter", "") if self.include_chapter_chk.isChecked() else "",
                     "date": highlight.get("date", "") if self.include_date_chk.isChecked() else "",
                     "book_title": book_title if self.include_book_info_chk.isChecked() else "",
                     "author": author if self.include_book_info_chk.isChecked() else "",
                 }
+                # carry uid through if available
+                if "uid" in highlight:
+                    prepared["uid"] = highlight.get("uid")
                 all_highlights.append(prepared)
         
         return all_highlights
     
     def _build_field_mapping(self) -> Dict[str, str]:
-        """Build field mapping from UI selections."""
-        highlight_field = self.highlight_field_combo.currentText()
-        comment_field = self.comment_field_combo.currentText()
-        metadata_field = self.metadata_field_combo.currentText()
-        
-        return {
-            "highlight": highlight_field,
-            "comment": comment_field,
-            "page": metadata_field,
-            "chapter": metadata_field,
-            "date": metadata_field,
-            "book_title": metadata_field,
-            "author": metadata_field,
-        }
+        """Build field mapping from persisted settings."""
+        return self.settings.get("field_mappings", DEFAULT_FIELD_MAPPINGS)
     
     def _start_export(self):
         """Start the export process."""
@@ -1086,10 +1085,32 @@ class AnkiExportDialog(QDialog):
         parent_deck = self.deck_combo.currentText() or "KOHighlights"
         model_name = self.note_type_combo.currentText() or DEFAULT_NOTE_TYPE
         create_subdecks = self.create_subdecks_chk.isChecked()
+        overwrite_deck = self.overwrite_deck_chk.isChecked()
+        field_mapping = self.settings.get("field_mappings", DEFAULT_FIELD_MAPPINGS)
+        if model_name == MAKHFOUZ_NOTE_TYPE:
+            field_mapping = DEFAULT_FIELD_MAPPINGS.copy()
         
         total_success = 0
         total_fail = 0
         all_errors = []
+
+        # Optionally delete target deck(s) before export
+        if overwrite_deck:
+            deck_names_to_delete = set()
+            for book in selected_books:
+                book_title = book.get("title", _("Unknown"))
+                if create_subdecks:
+                    safe_title = self.anki._sanitize_deck_name(book_title)
+                    deck_name = f"{parent_deck}::{safe_title}" if parent_deck else safe_title
+                else:
+                    deck_name = parent_deck
+                deck_names_to_delete.add(deck_name)
+            try:
+                if deck_names_to_delete:
+                    self.anki.delete_decks(list(deck_names_to_delete), cards_too=True)
+            except AnkiConnectError as e:
+                all_errors.append(_("Deck deletion failed: {}".format(str(e))))
+                # Proceed with export attempts even if deletion fails
         
         for book in selected_books:
             book_title = book.get("title", _("Unknown"))
@@ -1106,10 +1127,8 @@ class AnkiExportDialog(QDialog):
             highlights = self._prepare_highlights([book])
             
             if not highlights:
+                all_errors.append(_("Skipped book '{}' because it has no non-empty highlights." ).format(book_title))
                 continue
-            
-            # Build field mapping
-            field_mapping = self._build_field_mapping()
             
             # Build tags
             tags = []
@@ -1127,7 +1146,8 @@ class AnkiExportDialog(QDialog):
                     field_mapping,
                     tags,
                     self.allow_duplicates_chk.isChecked(),
-                    lambda c, t: self._update_progress(c, t, book_title)
+                    lambda c, t: self._update_progress(c, t, book_title),
+                    front_content=self.settings.get("front_content", "comment")
                 )
                 total_success += success
                 total_fail += fail
@@ -1149,15 +1169,59 @@ class AnkiExportDialog(QDialog):
                 msg += _("\n\nErrors:\n") + "\n".join(all_errors[:5])
                 if len(all_errors) > 5:
                     msg += _("\n... and {} more errors").format(len(all_errors) - 5)
-            
-            QMessageBox.information(self, _("Export Complete"), msg)
+                self._show_error_log(_("Export Complete"), msg, all_errors)
+            else:
+                QMessageBox.information(self, _("Export Complete"), msg)
             self.accept()
         else:
             msg = _("Export failed. No cards were added.")
             if all_errors:
                 msg += _("\n\nErrors:\n") + "\n".join(all_errors[:5])
-            
-            QMessageBox.warning(self, _("Export Failed"), msg)
+                self._show_error_log(_("Export Failed"), msg, all_errors)
+            else:
+                QMessageBox.warning(self, _("Export Failed"), msg)
+
+    def _show_error_log(self, title: str, summary: str, errors: List[str]):
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+        dialog.setModal(True)
+        dialog.resize(540, 360)
+        dialog.setSizeGripEnabled(True)
+
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+
+        summary_label = QLabel(summary)
+        summary_label.setWordWrap(True)
+        summary_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout.addWidget(summary_label)
+
+        error_text = QTextEdit()
+        error_text.setReadOnly(True)
+        error_text.setLineWrapMode(QTextEdit.NoWrap)
+        error_text.setText("\n".join(errors))
+        error_text.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+        error_text.setMinimumHeight(160)
+        error_text.setMaximumHeight(320)
+        error_text.setStyleSheet("font-family: monospace;")
+        layout.addWidget(error_text)
+
+        btn_layout = QHBoxLayout()
+        copy_btn = QPushButton(_("Copy errors"))
+        copy_btn.clicked.connect(lambda: self._copy_errors_to_clipboard(error_text.toPlainText()))
+        btn_layout.addWidget(copy_btn)
+        btn_layout.addStretch()
+        close_btn = QPushButton(_("Close"))
+        close_btn.clicked.connect(dialog.accept)
+        btn_layout.addWidget(close_btn)
+        layout.addLayout(btn_layout)
+
+        dialog.exec_() if hasattr(dialog, 'exec_') else dialog.exec()
+
+    def _copy_errors_to_clipboard(self, text: str):
+        clipboard = QApplication.clipboard()
+        clipboard.setText(text)
     
     def _update_progress(self, current: int, total: int, book_title: str):
         """Update the progress bar during export."""

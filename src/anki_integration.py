@@ -9,7 +9,8 @@ connecting the existing highlight data with the AnkiConnect API.
 from boot_config import *
 from boot_config import _
 from anki_connect import (AnkiConnect, AnkiConnectError, get_anki_connect,
-                          DEFAULT_ANKI_URL, DEFAULT_NOTE_TYPE, DEFAULT_FIELD_MAPPINGS)
+                          DEFAULT_ANKI_URL, DEFAULT_NOTE_TYPE, DEFAULT_FIELD_MAPPINGS,
+                          MAKHFOUZ_NOTE_TYPE)
 from anki_ui import AnkiExportDialog, AnkiPrefsWidget
 
 __author__ = "KOHighlights"
@@ -42,13 +43,15 @@ class AnkiIntegration:
             "anki_url": DEFAULT_ANKI_URL,
             "parent_deck": "KOHighlights",
             "create_subdecks": True,
-            "note_type": DEFAULT_NOTE_TYPE,
+            "note_type": MAKHFOUZ_NOTE_TYPE,
             "allow_duplicates": False,
             "add_tags": True,
             "include_chapter": True,
             "include_page": True,
             "include_date": False,
             "show_export_dialog": True,
+            "front_content": "comment",  # options: comment, highlight
+            "overwrite_deck": False,
             "field_mappings": DEFAULT_FIELD_MAPPINGS.copy()
         }
     
@@ -298,6 +301,13 @@ class AnkiIntegration:
         
         :param books_data: List of book data to export
         """
+        # Ensure the custom model exists if selected
+        if self._settings.get("note_type", DEFAULT_NOTE_TYPE) == MAKHFOUZ_NOTE_TYPE:
+            try:
+                self.get_anki_connect().ensure_makhfouz_model(DEFAULT_FIELD_MAPPINGS)
+            except AnkiConnectError:
+                pass
+
         dialog = AnkiExportDialog(self.base, books_data, self._settings, self.base)
         if QT6:  # QT6 requires exec() instead of exec_()
             dialog.exec_ = getattr(dialog, "exec")
@@ -324,9 +334,29 @@ class AnkiIntegration:
             field_mapping = self._settings.get("field_mappings", DEFAULT_FIELD_MAPPINGS)
             allow_duplicates = self._settings.get("allow_duplicates", False)
             add_tags = self._settings.get("add_tags", True)
+            overwrite_deck = self._settings.get("overwrite_deck", False)
+
+            # Ensure custom model exists if using the Makhfouz note type
+            if model_name == MAKHFOUZ_NOTE_TYPE:
+                field_mapping = DEFAULT_FIELD_MAPPINGS.copy()
+                anki.ensure_makhfouz_model(field_mapping)
             
             total_success = 0
             total_fail = 0
+
+            # Optionally delete target deck(s) before export
+            if overwrite_deck:
+                deck_names_to_delete = set()
+                for book in books_data:
+                    book_title = book.get("title", "")
+                    if create_subdecks:
+                        safe_title = anki._sanitize_deck_name(book_title)
+                        deck_name = f"{parent_deck}::{safe_title}" if parent_deck else safe_title
+                    else:
+                        deck_name = parent_deck
+                    deck_names_to_delete.add(deck_name)
+                if deck_names_to_delete:
+                    anki.delete_decks(list(deck_names_to_delete), cards_too=True)
             
             for book in books_data:
                 book_title = book.get("title", "")
@@ -358,7 +388,9 @@ class AnkiIntegration:
                     book.get("highlights", []),
                     field_mapping,
                     tags,
-                    allow_duplicates
+                    allow_duplicates,
+                    progress_callback=None,
+                    front_content=self._settings.get("front_content", "comment")
                 )
                 
                 total_success += success
